@@ -1,15 +1,16 @@
 # Install and manage the r10k gem
 #
-# @param remote the git remote address to bring code from, in the format
-# 'git@git.server.com:git_group/control_repo_git_project.git'. Required.
+# @param client_remote the git remote address to bring code from, in the format
+# 'git@git.server.com:git_group/control_repo_git_project.git'. If not defined,
+# only the Puppet controlrepo source will be configured.
 #
 # @param webhook_port the port number where the server will listen to receive
 # controlrepo updates. Default to 8088
 #
 # [Remember: No empty lines between comments and class definition]
 class profiles::puppet::r10k (
-  String  $remote,
-  Integer $webhook_port = 8088,
+  Optional[String] $client_remote = undef,
+  Integer          $webhook_port  = 8088,
 ) {
 
   include profiles::linux::firewall
@@ -21,19 +22,32 @@ class profiles::puppet::r10k (
     protocol => 'tcp',
   }
 
-  class { 'r10k':
-    sources => {
-      'puppet' => {
-        'remote'  => 'https://github.com/instruct-br/puppet-controlrepo.git',
-        'basedir' => '/etc/puppetlabs/code/environments',
-        'prefix'  => true,
-      },
-      'client' => {
-        'remote'  => $remote,
-        'basedir' => '/etc/puppetlabs/code/environments',
-        'prefix'  => false,
-      }
+  $puppet_controlrepo_source = {
+    'puppet' => {
+      'remote'  => 'https://github.com/instruct-br/puppet-controlrepo.git',
+      'basedir' => '/etc/puppetlabs/code/environments',
+      'prefix'  => true,
     }
+  }
+
+  $client_controlrepo_source = {
+    'client' => {
+      'remote'  => $client_remote,
+      'basedir' => '/etc/puppetlabs/code/environments',
+      'prefix'  => false,
+    }
+  }
+
+  if $client_remote {
+    $real_sources = $puppet_controlrepo_source + $client_controlrepo_source
+    notify { 'Achei um client_remote': }
+  } else {
+    $real_sources = $puppet_controlrepo_source
+    notify { 'Nao tem client_remote': }
+  }
+
+  class { 'r10k':
+    sources => $real_sources
   }
 
   class { 'r10k::webhook::config':
