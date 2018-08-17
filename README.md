@@ -4,7 +4,7 @@ This is a standard Puppet controlrepo to start a new Puppet infrastructure. It w
 
 ## Before starting
 
-This controlrepo was designed to be applied in the Puppe Server CA host, because it is the first piece to be configured. For this host you will need a CentOS 7 with `root` access, at least 2 processors, 6 GB of RAM, and 30 GB of disk.
+This controlrepo was designed to be applied in the Puppet Server CA host, because it is the first piece to be configured. For this host you will need a CentOS 7 with `root` access, at least 2 processors, 6 GB of RAM, and 30 GB of disk.
 
 We strongly recommend to keep all Puppet infrastructure hosts as CentOS 7, but Ubuntu and Debian can be used as well, but they are not so well tested!!
 
@@ -12,29 +12,29 @@ We strongly recommend to keep all Puppet infrastructure hosts as CentOS 7, but U
 
 The first step is to read this README to the end.
 
-The second step should be to install the Puppet 5 repository:
+The second step should be to install the Puppet agent. We suggest using [this project](https://github.com/instruct-br/puppet-installer) to automate it, but this simple command will do this for now:
 
-    $ yum install http://yum.puppet.com/puppet5/puppet5-release-el-7.noarch.rpm
+    # curl https://raw.githubusercontent.com/instruct-br/puppet-installer/master/installer.sh | bash -s
 
 Then install the pre-reqs packages:
 
-    $ yum install git gem puppet-agent
+    # yum install --assumeyes git gem
 
 Then it will be necessary to install some gems:
 
-    $ gem install r10k --no-document
+    # gem install r10k --no-document
 
 After that, you should create your configuration files, as detailed below.
 
 ### r10k
 
-    $ mkdir --parent --verbose /etc/r10k
+    # mkdir --parent --verbose /etc/puppetlabs/r10k
 
-#### /etc/r10k/r10k.yaml
+#### /etc/puppetlabs/r10k/r10k.yaml
 
 ``` yaml
 ---
-cachedir: '/var/cache/r10k'
+cachedir: '/opt/puppetlabs/puppet/cache/r10k'
 #proxy: 'https://proxy.example.com:8888'
 sources:
   puppet:
@@ -43,13 +43,11 @@ sources:
     prefix : true
 ```
 
-    $ /usr/local/bin/r10k --config /etc/r10k/r10k.yaml deploy environment --verbose
-
 ### Manifests files
 
 All the configuration files, by default, should be in the directory `/etc/controlrepo`. The full directory tree can be created with this command:
 
-    $ mkdir --parent --verbose /etc/controlrepo/{data,manifests}
+    # mkdir --parent --verbose /etc/controlrepo/{data,manifests}
 
 #### /etc/controlrepo/manifests/00_default.pp
 
@@ -121,54 +119,70 @@ This script will generate an usefull Puppet version to the received catalog:
 hash git && git --git-dir /etc/puppetlabs/code/environments/$1/.git log --pretty=format:"%h - %an, %ad : %s" -1
 ```
 
-===== /etc/puppetlabs/puppet/puppet.conf =====
-...
-[main]
-hiera_config = /etc/controlrepo/hiera.yaml
-...
-===== ===== =====
+## Sync the remote controlrepo
 
-REVER DAQUI PARA BAIXO
+Now we already can use r10k to synchronize the environment and download Puppet Forge modules:
+
+    # /opt/puppetlabs/puppet/bin/r10k deploy environment --config /etc/r10k/r10k.yaml --verbose
+
+## Running the Puppet agent
+
+If we are configuring the Puppet Server CA node, we have to create the CA certificate before the first Puppet run. You can do this with this command:
+
+    # /opt/puppetlabs/puppet/bin/puppet cert generate "$(hostname --fqdn)" --dns_alt_names=puppet
+
+Then we need to set the correct environment to our new Puppet infrastructure, with this command:
+
+    # /opt/puppetlabs/puppet/bin/puppet config set environment puppet_master --section main
+
+And then we can set our Hiera config file create before:
+
+    # /opt/puppetlabs/puppet/bin/puppet config set hiera_config /etc/controlrepo/hiera.yaml --section main
+
+With all set up, it is time to run the Puppet agent locally to install all others tools:
+
+    # /opt/puppetlabs/puppet/bin/puppet apply -e 'include roles::puppet::monolithic'
+
 ###############################################################
 
 ## Repositório de controle do Puppet
 
-Este é o novo repositório de controle do Puppet.
+Este é the novo repositório de controle do Puppet.
 
 Esse repositório foi construído para suportar a Stack 5 do Puppet.
 
 ### Pré-requisitos
 
-Para fazer o desenvolvimento local é necessário ter instalado os seguintes componentes em seu notebook/desktop:
+Para fazer the desenvolvimento local é necessário ter instalado os seguintes componentes em seu notebook/desktop:
 
 - VirtualBox 5.2.x
 - Vagrant 2.x
 - Puppet Agent 5.x + R10k
 
-Após instalar o agente, instale o r10k.
+Após instalar the agente, instale the r10k.
 
     /opt/puppetlabs/puppet/bin/gem install r10k
 
-* Em seu host é necessário ter um chave ssh com permissões para baixar os projetos no GitLab.
+- Em seu host é necessário ter um chave ssh com permissões para baixar os projetos no GitLab.
 
 ### Estrutura básica
 
-Dentro deste projetos temos vários arquivos e pastas, mas os principais são:
+Dentro deste projetos temos vários arquivos and pastas, mas os principais são:
 
 - `data/`: contém os dados do Hiera;
 - `environment.yaml`: arquivo básico de configuração do ambiente Puppet;
-- `hiera.yaml`: arquivo que configura o Hiera 5;
-- `manifests/`: contém os arquivos `.pp` que farão o relacionamento dos _hosts_ atendidos com os papéis disponíveis;
+- `hiera.yaml`: arquivo que configure the Hiera 5;
+- `manifests/`: contém os arquivos `.pp` que farão the relacionamento dos _hosts_ atendidos com os papéis disponíveis;
 - `modules/`: contém módulos Puppet externos ao projeto;
-- `Puppetfile`: arquivo que configura os módulos externos disponíveis, via `r10k`;
+- `Puppetfile`: arquivo que configure os módulos externos disponíveis, via `r10k`;
 - `site/profiles/`: contém os perfis (_profiles_) Puppet do projeto;
 - `site/roles/`: contém os papéis (_roles_) Puppet do projeto;
 
 ## Desenvolvendo código
 
-### Usando o Puppet Toolkit
+### Usando the Puppet Toolkit
 
-O primeiro passo é clonar o repositório do Puppet Toolkit e do controlrepo para seu ambiente local:
+O primeiro passo é clonar the repositório do Puppet Toolkit and do controlrepo para seu ambiente local:
 
     git clone https://github.com/instruct-br/puppet-toolkit
     cd puppet-toolkit
@@ -179,12 +193,12 @@ O segundo passo é baixar os módulos externos:
 
     /opt/puppetlabs/puppet/bin/r10k puppetfile install -v debug
 
-Para iniciar uma VM local com o Puppet Server monolítico (Puppet Server CA, PostgreSQL, PuppetDB, ActiveMQ), faça o seguinte:
+Para iniciar uma VM local com the Puppet Server monolítico (Puppet Server CA, PostgreSQL, PuppetDB, ActiveMQ), faça the seguinte:
 
     cd ..
     vagrant up puppet
 
-Esta VM estará vazia, apenas com o sistema operacional básico. Para inicializar o ambiente monolítico execute:
+Esta VM estará vazia, apenas com the sistema operacional básico. Para inicializar the ambiente monolítico execute:
 
     vagrant ssh puppet
     sudo -i
@@ -195,7 +209,7 @@ Esta VM estará vazia, apenas com o sistema operacional básico. Para inicializa
     ln -s /vagrant/control-repo production
     puppet apply -e "include roles::puppet::monolitico"
 
-O provisionamento leva cerca de 6 minutos e irá instalar e configurar os seguintes componentes:
+O provisionamento leva cerca de 6 minutos and irá instalar and configurar os seguintes componentes:
 
 - Puppet Server 5.3.4
 - Puppet Agent 5.5.4
@@ -217,26 +231,26 @@ Este repositório suporta as seguintes versões:
 
 #### roles::puppet::monolitico
 
-- Instala e configura um servidor Puppet Monolitico
-  - Padroniza o OS Linux
-  - Mantém o agente puppet
-  - Mantém o serviço mcollective
-  - Mantém o cliente mcollective (orquestrador)
-  - Instala e mantém o serviço ActiveMQ
-  - Instala e mantém o serviço PuppetDB
-  - Instala e mantém o serviço PostgreSQL para o PuppetDB
-  - Instala e mantém o serviço Puppet Board
-  - Instala e mantém o serviço Puppet Server
-  - Instala e mantém configurações do r10k
+- Installs and configures um servidor Puppet Monolitico
+  - Padroniza the OS Linux
+  - Mantém the agente puppet
+  - Mantém the serviço mcollective
+  - Mantém the cliente mcollective (orquestrador)
+  - Install and mantém the serviço ActiveMQ
+  - Install and mantém the serviço PuppetDB
+  - Install and mantém the serviço PostgreSQL para the PuppetDB
+  - Install and mantém the serviço Puppet Board
+  - Install and mantém the serviço Puppet Server
+  - Install and mantém configurações do r10k
 
 #### roles::puppet::compiler
 
-- Instala e configura um servidor Puppet Compiler
-  - Padroniza o OS Linux
-  - Mantém o agente puppet
-  - Mantém o serviço mcollective
-  - Instala e mantém o serviço Puppet Server
-  - Instala e mantém configurações do r10k
+- Installs and configures um servidor Puppet Compiler
+  - Padroniza the OS Linux
+  - Mantém the agente puppet
+  - Mantém the serviço mcollective
+  - Install and mantém the serviço Puppet Server
+  - Install and mantém configurações do r10k
 
 ### Profiles
 
@@ -263,7 +277,7 @@ Esta classe inclui as seguintes classes para padronização do SO Linux.
 
 Exemplo de hash no hiera:
 
-```
+``` yaml
 profile::linux::admins::group: 'admins'
 profile::linux::admins::users:
   'gutocarvalho':
@@ -282,112 +296,109 @@ profile::linux::admins::users:
 
 #### profiles::linux::firewall
 
-Ativa o serviço firewalld e libera a porta 22 para acesso ssh.
+- Enable firewalld service on the system.
 
 #### profiles::linux::jvm
 
-Instala JVM no sistema operacional.
+- Installs and configures a Java Virtual Machine.
 
 #### profiles::linux::limits
 
-Configura security/limits no sistema operacional.
+- Configures security limits on the system.
 
 #### profiles::linux::packages
 
-Instala pacotes básicos no sistema operacional.
+- Install basic packages on the system.
 
-Exemplo de hash:
+Hiera example:
 
-```
+``` yaml
 profile::linux::packages::package_list:
-  - vim-enhanced
-  - screen
+  - curl
+  - lynx
   - nano
   - rsync
-  - telnet
-  - curl
+  - screen
   - tcpdump
+  - telnet
   - tree
-  - lynx
+  - vim-enhanced
 ```
 
 #### profiles::linux::selinux
 
-- Ativa o SELinux no sistema operacional, modo enforcing.
+- Manages SELinux, default on enforcing mode.
 
 #### profiles::linux::sshd
 
-- Configura e mantém o serviço sshd no sistema operacional.
-- Proibe ssh via root
-- Define porta TCP 22 como padrão para o ssh.
+- Configures sshd service.
 
 #### profiles::linux::sudo
 
-- Carrega classe de gerenciamento do sudo no sistema operacional
+- Manages sudo on the system.
 
 #### profiles::linux::users
 
-- Cria usuários comuns no sistema operacional.
+- Create local users on the system.
 
-Exemplo de hash:
+Hiera example:
 
-```
-rofile::linux::users:users_hash:
+``` yaml
+profile::linux::users:users_hash:
   'oscar':
     comment: 'Oscar Ximiti'
     groups:
       - 'devs'
     sshkeys:
-      - 'hash da chave'
+      - 'public key hash'
   'aurora':
     comment: 'Aurora da Silva'
     groups:
       - 'devs'
     sshkeys:
-      - 'hash da chave'
+      - 'public key hash'
 ```
 
 #### profiles::linux::vagrant
 
-- Classe utilizada apenas para desenvolvimento local do controlrepo.
-- Quando detectar o virtualbox como hypervisor, coloca o usuário vagrant como admin
+- Used only for project local development. When running on a Vagrant box, sets 'vagrant' user as admin.
 
 #### profiles::puppet::activemq
 
-- Instala e configura o ActiveMQ para uso do Mcollective
+- Installs and configures MCOllective's ActiveMQ service
 
 #### profiles::puppet::agent
 
-- Configura o Puppet Agent do node
+- Configures Puppet Agent service
 
 #### profiles::puppet::board
 
-- Instala e configura do Puppet Board
+- Installs and configures Puppet Board
 
 #### profiles::puppet::r10k
 
-- Instala e configura o R10k
+- Installs and configures R10k
 
 #### profiles::puppet::server
 
-- Instala e configura o serviço Puppet Server
+- Installs and configures Puppet Server service.
 
 #### profiles::puppet::mco::client
 
-- Configura o serviço Mcollective Server e Client.
+- Installs and configures MCollective Server and Client services.
 
 #### profiles::puppet::mco::server
 
-- Configura o serviço Mcollective Server.
+- Installs and configures MCollective Server service.
 
 #### profiles::puppet::db::aio
 
-- Instala e configura o PuppetDB + PostgreSQL
+- Installs and configures PuppetDB + PostgreSQL.
 
 #### profiles::puppet::db::server
 
-- Instala e configura o PuppetDB Server.
+- Installs and configures PuppetDB Server.
 
 #### profiles::puppet::db::postgresql
 
-- Instala e configura o PostgreSQL para o PuppetDB.
+- Installs and configures PuppetDB's PostgreSQL.
