@@ -40,10 +40,8 @@ class profiles::puppet::r10k (
 
   if $client_remote {
     $real_sources = $puppet_controlrepo_source + $client_controlrepo_source
-    notify { 'Achei um client_remote': }
   } else {
     $real_sources = $puppet_controlrepo_source
-    notify { 'Nao tem client_remote': }
   }
 
   class { 'r10k':
